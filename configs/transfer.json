@@ -1,0 +1,24 @@
+{
+  "target_seed": 0,
+  "known_epochs": 200,
+  "known_global_batch_size": 40,
+  "known_microbatch_size": 20,
+  "fewshot_epochs": 500,
+  "shot_counts": [
+    16,
+    32,
+    64,
+    128
+  ],
+  "fewshot_batch_size": "min(20, shots)",
+  "learning_rate": 0.0001,
+  "betas": [
+    0.9,
+    0.9
+  ],
+  "weight_decay": 1e-06,
+  "warmup_fraction": 0.2,
+  "validation_interval_epochs": 10,
+  "selection": "minimum validation error; fixed E200 for known tasks",
+  "target_ns_substeps": 8
+}
