@@ -13,7 +13,9 @@ import json
 import math
 
 
-VERSION = "HOTPOT_FINAL_VALIDATION_SUITE_20260917_R1"
+from hotpot.protocols import COEFFICIENT_SHOTS, WAVE_SHOTS, maximum_learning_rate, training_seed
+
+VERSION = "hotpot.release.v2"
 
 
 KNOWN = (
@@ -31,7 +33,7 @@ CFDB = ("cfdb_cavity", "cfdb_cylinder", "cfdb_tube")
 WAVE = ("Wave-Layer", "Wave-Gauss")
 
 
-SHOTS = (16, 32, 64, 128)
+SHOTS = tuple(sorted(set(COEFFICIENT_SHOTS + WAVE_SHOTS)))
 
 
 MODES = ("known-train", "known-test", "fewshot-train", "fewshot-test",
@@ -49,7 +51,11 @@ def digest_json(value):
 def recipe(a, source_sha):
     return {"version": VERSION, "task": a.task, "source_key": a.source_key,
             "source_sha256": source_sha, "arm": a.arm, "shots": a.shots,
-            "target_seed": 0, "source_seed": 20260815, "selection": a.selection,
+            "target_replicate": 0, "training_rng_seed": training_seed(a.mode),
+            "source_seed": 20260815, "selection": a.selection,
+            "max_learning_rate": maximum_learning_rate(a.mode, a.task, a.shots),
+            "validation_metric": ("full_rollout_per_channel_L2RE" if a.mode.startswith("fewshot-") else
+                                  "mean_per_step_L2RE" if a.mode.startswith("wave-") else None),
             "fno_execution_substeps": 8,
             "epochs": 200 if a.mode.startswith("known-") else 500,
             "scope": "SMOKE" if a.smoke_updates else "FINAL",
@@ -76,7 +82,7 @@ def validate_wave_split(manifest, task):
         raise ValueError("Wave heldout rows differ from the original split rule")
     prefix = f'{manifest["split_id"]}|{task}|fewshot|0|'
     order = sorted(pool, key=lambda i: (hashlib.sha256(f"{prefix}{i}".encode()).hexdigest(), i))
-    for n in SHOTS:
+    for n in WAVE_SHOTS:
         if d["fewshot_train_indices"]["0"][str(n)] != order[:n]:
             raise ValueError("Wave seed0 nested training subsets drift")
     # Source paths saved in the historical manifest are never followed.

@@ -1,5 +1,6 @@
 """Fine-tuning, coefficient generalization, and new-family transfer."""
 from .config import ConfigArgumentParser
+from .protocols import normalize_arguments, training_seed
 import json
 import os
 from pathlib import Path
@@ -61,8 +62,16 @@ def load_target(a, prepared):
     return snap
 
 
+class TransferArgumentParser(ConfigArgumentParser):
+    def validate_args(self, args):
+        try:
+            normalize_arguments(args)
+        except ValueError as error:
+            self.error(str(error))
+
+
 def main():
-    p=ConfigArgumentParser(description=__doc__)
+    p=TransferArgumentParser(description=__doc__)
     p.add_argument('--workspace',type=Path,required=True)
     p.add_argument('--paths',type=Path,required=True,help='JSON mapping of data dependencies to workspace-relative paths')
     p.add_argument('--checkpoint',type=Path,required=True,help='Full source model checkpoint')
@@ -102,15 +111,18 @@ def main():
     if not a.output.is_relative_to(a.repo):p.error('--output must be inside --workspace')
     a.output.mkdir(parents=True,exist_ok=False)
     os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
-    random.seed(0);np.random.seed(0);torch.manual_seed(0)
+    seed=training_seed(a.mode)
+    random.seed(seed);np.random.seed(seed);torch.manual_seed(seed);torch.cuda.manual_seed_all(seed)
+    torch.set_num_threads(1)
+    torch.use_deterministic_algorithms(True, warn_only=not a.mode.startswith("known-"))
     torch.backends.cuda.matmul.allow_tf32=False
-    torch.backends.cudnn.allow_tf32=True
+    torch.backends.cudnn.allow_tf32=False
     torch.backends.cudnn.benchmark=False
     bound=build_model(a.scale,workspace=a.repo,target=True)
     load_checkpoint(bound,a.checkpoint)
     source_sha=sha256(a.checkpoint)
     protocol=recipe(a,source_sha)
-    protocol['version']='hotpot.release.v1'
+    protocol['version']='hotpot.release.v2'
     if a.mode=='zero-shot':protocol['epochs']=0
     prepared={'repo':a.repo,'source_path':a.checkpoint,'source_entry':{'sha256':source_sha},
               'paths':paths,'recipe':protocol}

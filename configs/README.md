@@ -9,7 +9,7 @@ Run commands from the repository root. YAML keys name CLI arguments with undersc
 | `evaluate.yaml` | `evaluate.py` | Source-checkpoint rollout evaluation |
 | `finetune.yaml` | `finetune.py` | Known-task fine-tuning |
 | `zero_shot.yaml` | `finetune.py` | Unseen-coefficient evaluation |
-| `few_shot.yaml` | `finetune.py` | 32-shot coefficient adaptation |
+| `few_shot.yaml` | `finetune.py` | 64-shot coefficient adaptation |
 | `wave.yaml` | `finetune.py` | 32-shot Wave-Gauss adaptation |
 
 Paths in configurations are relative to the working directory. If you change `workspace`, also update checkpoint, metadata, and output paths as needed. `data_paths.json` maps transfer dependencies to paths **inside the workspace**.

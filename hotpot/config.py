@@ -18,6 +18,9 @@ class ConfigArgumentParser(argparse.ArgumentParser):
         self.add_argument('--print-config', action='store_true',
                           help='Validate and print the resolved arguments without running')
 
+    def validate_args(self, args):
+        """Entry points may validate combinations before --print-config exits."""
+
     def parse_args(self, args=None, namespace=None):
         args = list(sys.argv[1:] if args is None else args)
         bootstrap = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
@@ -54,6 +57,7 @@ class ConfigArgumentParser(argparse.ArgumentParser):
                 else:
                     self.error(f'{key} must be a scalar argument value')
         result = super().parse_args(defaults + args, namespace)
+        self.validate_args(result)
         if result.print_config:
             print(json.dumps({k: v for k, v in vars(result).items()
                               if k not in ('config', 'print_config')}, indent=2, default=str))

@@ -81,7 +81,7 @@ python finetune.py --config configs/finetune.yaml
 # Evaluate under unseen coefficients without fine-tuning.
 python finetune.py --config configs/zero_shot.yaml
 
-# Adapt using 32 target trajectories.
+# Adapt using 64 target trajectories.
 python finetune.py --config configs/few_shot.yaml
 
 # Transfer the history encoder to a new PDE family.

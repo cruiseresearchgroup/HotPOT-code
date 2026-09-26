@@ -12,9 +12,20 @@
     0.9
   ],
   "weight_decay": 1e-06,
-  "noise_scale_non_cfdb": 0.0005,
   "scheduler": "OneCycleLR",
   "warmup_fraction": 0.2,
   "updates_per_epoch": 545,
-  "source_ns_substeps": 4
+  "source_ns_substeps": 4,
+  "input_noise": {
+    "scale": 0.0005,
+    "tasks": [
+      "NS_native_grid",
+      "DR"
+    ],
+    "clean_tasks": [
+      "CNS",
+      "SWE",
+      "CFDBench"
+    ]
+  }
 }

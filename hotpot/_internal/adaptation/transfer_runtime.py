@@ -14,6 +14,9 @@ from .core import atomic_json, checked_path, sha256
 from .transfer import (CFDB, FEWSHOT, SNAPSHOT_SCHEMA, WAVE, digest_json, finite_tree,
                        patched, validate_wave_split, verify_snapshot)
 
+from hotpot.protocols import maximum_learning_rate
+from .coefficient_rollout import RolloutValidationDataset, rollout as coefficient_rollout
+
 BASE = "hotpot._internal.data_protocol"
 OLD = "hotpot._internal.encoder"
 OOD = "hotpot._internal.coefficients"
@@ -132,7 +135,8 @@ def known_train(a, bindings, prepared, output, bound):
     args = Namespace(workspace=a.repo, cfdb_sidecar=prepared["paths"]["transfer.cfdb.train_sidecar"],
                      base_checkpoint=prepared["source_path"], base_sha256=prepared["source_entry"]["sha256"],
                      output=native_output, target=a.task, epochs=200, warmup_epochs=40,
-                     local_batch_size=40, num_workers=0, learning_rate=1e-4,
+                     local_batch_size=40, num_workers=0,
+                     learning_rate=maximum_learning_rate(a.mode, a.task),
                      checkpoint_every=10, max_updates=0, gradient_microbatch_size=20,
                      resume=None, smoke_updates=a.smoke_updates)
     def init():
@@ -148,7 +152,7 @@ def known_train(a, bindings, prepared, output, bound):
         return {"path": str(path), "sha256": expected_sha256, "bytes": path.stat().st_size,
                 "completed_epoch": 1000, "updates": 545000, "binding_key": a.source_key}
     replacements = dict(arguments=lambda: args, Base6SemanticFieldFoundation=lambda **kw: bound,
-                        _load_base_checkpoint=base_identity, SEED=0, _init_distributed=init,
+                        _load_base_checkpoint=base_identity, SEED=20260815, _init_distributed=init,
                         parameter_ledger=account.parameter_ledger,
                         _microbatch_slices=lambda size, micro: tuple(slice(i, min(i + micro, size))
                                                                     for i in range(0, size, micro)))
@@ -176,19 +180,16 @@ def known_train(a, bindings, prepared, output, bound):
 def ood_data(a, prepared):
     data = module(OOD + ".data")
     spec = replace(data.TARGETS[a.task], relative_train_path=str(prepared["paths"][f"transfer.{a.task}.train"]))
-    # Preserve the exact historical randperm and validation address rule; extend
-    # its nested prefix to 32/128 without ever calling the old seed queue.
-    pool, valid = data.split_rows(spec, 1000, 0)
-    rows = pool[:a.shots]
-    addresses = data.fixed_validation_addresses(spec, valid)
+    rows, valid = data.split_rows(spec, a.shots, 0)
     sampler = data.EpochBatchSampler(spec, rows, seed=0, batch_size=min(20, a.shots))
     dataset = data.TargetStorageDataset(a.repo, spec)
     from torch.utils.data import DataLoader
     train = DataLoader(dataset, batch_sampler=sampler, num_workers=a.num_workers)
-    validation = DataLoader(dataset, batch_sampler=data.FixedBatchSampler(addresses, 20), num_workers=a.num_workers)
+    validation = DataLoader(RolloutValidationDataset(a.repo, spec, valid),
+                            batch_size=8, num_workers=a.num_workers)
     return data, spec, sampler, train, validation, {
         "training_rows": list(rows), "validation_rows": list(valid),
-        "validation_address_sha256": data.address_hash(addresses)}
+        "validation_start": 0, "validation_horizon": 20 if spec.family == "fno" else 11}
 
 
 def configure_ood(a, bound, spec):
@@ -221,15 +222,17 @@ def fit(a, prepared, output, model, batches, validate, metadata, *, wave=False):
     data_id = training_identity(a, prepared)
     per_epoch = math.ceil(a.shots / min(20, a.shots))
     total = 500 * per_epoch
+    max_lr = maximum_learning_rate(a.mode, a.task, a.shots)
     optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad],
-                                  lr=1e-4, betas=(0.9, 0.9), weight_decay=1e-6)
-    schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=1e-4, total_steps=total,
+                                  lr=max_lr, betas=(0.9, 0.9), weight_decay=1e-6)
+    schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=max_lr, total_steps=total,
                                                    pct_start=0.2, div_factor=1e4, final_div_factor=1e4)
     atomic_json(output / "PREREGISTRATION.json", {
         "recipe": prepared["recipe"], "planned_updates": total, "updates_per_epoch": per_epoch,
         "batch_size": min(20, a.shots), "optimizer": "Adam betas(0.9,0.9) wd1e-6",
-        "schedule": "OneCycle max_lr1e-4 pct_start0.2 div_factor1e4 final_div_factor1e4",
-        "validation_metric": "free_rollout_mean_per_trajectory_per_step_L2RE" if wave else "fixed_H10_H1_SimpleLpLoss",
+        "schedule": "OneCycle pct_start0.2 div_factor1e4 final_div_factor1e4",
+        "max_learning_rate": max_lr,
+        "validation_metric": "free_rollout_mean_per_trajectory_per_step_L2RE" if wave else "full_rollout_per_channel_L2RE",
         "validation_every_epochs": 10, "data_identity": data_id, **metadata,
         "test_used_for_selection": False})
     best, updates = math.inf, 0
@@ -254,10 +257,18 @@ def fit(a, prepared, output, model, batches, validate, metadata, *, wave=False):
             if a.smoke_updates and updates == a.smoke_updates:
                 break
         smoke_done = bool(a.smoke_updates and updates == a.smoke_updates)
-        score = validate() if epoch % 10 == 0 or smoke_done else None
-        if score is not None and not math.isfinite(score):
-            raise FloatingPointError("nonfinite validation metric")
-        save = smoke_done or (a.selection == "fixed-final" and epoch == 500) or (
+        score, validation_error = None, None
+        if epoch % 10 == 0 or smoke_done:
+            try:
+                score = validate()
+                if not math.isfinite(score):
+                    raise FloatingPointError("nonfinite validation metric")
+            except FloatingPointError as error:
+                if wave:
+                    raise
+                # Final coefficient protocol rejects this candidate, then continues training.
+                score, validation_error = None, str(error)
+        save = (smoke_done and score is not None) or (a.selection == "fixed-final" and epoch == 500) or (
             a.selection == "original-val" and score is not None and score < best)
         if score is not None:
             best = min(best, score)
@@ -266,7 +277,8 @@ def fit(a, prepared, output, model, batches, validate, metadata, *, wave=False):
             payload["population"] = metadata
             save_tensor(path, payload)
         event = {"epoch": epoch, "updates": updates, "train_l2re": loss_sum / sample_count,
-                 "validation_l2re": score, "best_validation_l2re": best if math.isfinite(best) else None}
+                 "validation_l2re": score, "validation_invalid_reason": validation_error,
+                 "best_validation_l2re": best if math.isfinite(best) else None}
         finite_tree(event)
         with (output / "metrics.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(event, allow_nan=False) + "\n")
@@ -291,31 +303,18 @@ def fewshot(a, prepared, output, bound):
     model, names = configure_ood(a, bound, spec)
     device = torch.device("cuda:0")
     def validate():
-        # Same original _validate computation, with row/address evidence retained.
-        model.eval()
-        total, count, observed = 0., 0, []
-        with torch.no_grad():
-            for batch in valid:
-                context = {"role": "validation", "rows": batch["row"].tolist(), "starts": batch["start"].tolist()}
-                atomic_json(output / "CURRENT_BATCH.json", context)
-                prediction, truth = original._predict(model, "ours", batch, spec, device)
-                values = checked_losses(prediction, truth,
-                    lambda p, t: original.simple_relative_lp(p, t, reduction="none"), context=str(context))
-                total += float(values.sum().cpu())
-                count += values.numel()
-                observed.extend({"row": row, "start": start, "l2re": value} for row, start, value in
-                                zip(context["rows"], context["starts"], values.cpu().tolist()))
-        if count != 256:
-            raise ValueError("fixed train-origin validation population must have 256 rows")
-        atomic_json(output / "VALIDATION_SCORES.json", observed)
-        return total / count
+        result = coefficient_rollout(model, spec, valid)
+        if [row["row"] for row in result["rows"]] != population["validation_rows"]:
+            raise ValueError("validation row population/order drift")
+        atomic_json(output / "VALIDATION_SCORES.json", result)
+        return result["mean_l2re"]
     if a.mode == "fewshot-test":
         snapshot = load_target(a, prepared)
         if snapshot.get("population", {}).get("split") != population:
             raise ValueError("few-shot target row/address identities drift")
         checked_state(model, snapshot["full_model_state"])
         restoration(snapshot["validation_l2re"], validate(), output)
-        return ood_evaluate(a, prepared, output, model)
+        return coefficient_test(a, prepared, output, model)
     def batches(epoch):
         sampler.set_epoch(epoch - 1)
         for batch in train:
@@ -327,6 +326,24 @@ def fewshot(a, prepared, output, bound):
             yield values, context
     return fit(a, prepared, output, model, batches, validate,
                {"split": population, "trainable_names": names})
+
+
+def coefficient_test(a, prepared, output, model):
+    import torch
+    ev = module("hotpot._internal.zero_shot.evaluate")
+    target = module(OOD + ".data").TARGETS[a.task]
+    spec = replace(ev.EVALUATION_BY_KEY[target.key],
+                   test_path=str(prepared["paths"][f"transfer.{a.task}.test"]))
+    atomic_json(output / "TEST_DATA.json", identity(prepared["paths"][f"transfer.{a.task}.test"], a.repo))
+    atomic_json(output / "TEST_ACCESS.json", {"test_used_for_selection": False,
+                "scope": "COEFFICIENT_FEWSHOT_FULL_ROLLOUT"})
+    loader = torch.utils.data.DataLoader(ev.OfficialRolloutDataset(a.repo, spec),
+                                        batch_size=8, num_workers=a.num_workers)
+    result = coefficient_rollout(model, target, loader)
+    if [row["row"] for row in result["rows"]] != list(range(spec.samples)):
+        raise ValueError("coefficient test population/order drift")
+    atomic_json(output / "RESULT.json", result)
+    return result
 
 
 def rollout_scores(loader, spec, predict, output):
