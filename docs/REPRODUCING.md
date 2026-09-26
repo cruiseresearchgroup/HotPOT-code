@@ -12,7 +12,7 @@ Use `--resume workspace/runs/full17/checkpoint_eNNNN.pt` with the original run's
 
 Use the fixed E1000 source checkpoint. `evaluate.py` reports a mean and all trajectory scores at the requested setting's horizons. It rolls forward using the model's own predictions. The scored horizons are 10 for NS 1e-5 and CFDBench, 20 for NS 1e-3, 11 for CNS, and 91 for SWE/DR. The evaluation computes relative error over the horizon using the released grid/channel mask; this differs from averaging independent per-step errors.
 
-For CFDBench, add `--cfdb-test-sidecar workspace/metadata/cfdb_test.json`. Use `--target` when evaluating target-adapted full model states: source NS execution uses four substeps, while the target protocol uses eight.
+For CFDBench, add `--cfdb-test-sidecar workspace/metadata/cfdb_test.json`. Use `--target` when evaluating target-adapted full model states.
 
 ## Known-task fine-tuning
 

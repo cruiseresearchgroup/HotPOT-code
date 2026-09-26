@@ -39,4 +39,4 @@ Dataset indices follow the six entries in the README table (0–5). CFDBench add
 | Fine-tuning and transfer | [`adaptation/`](../hotpot/_internal/adaptation/) |
 | New-family Wave models | [`wave/`](../hotpot/_internal/wave/) |
 
-The 17M and 90M names describe activated scale. Total storage includes every expert and is larger; `model.parameter_ledger()` reports both definitions. Source pre-training uses four NS substeps. Known-task NS fine-tuning and coefficient adaptation/evaluation use eight, selected with `build_model(..., target=True)`. The observed frame interval is unchanged: the internal step changes from dt/4 to dt/8. Midpoint integration queries the same readout twice per substep (8 versus 16 calls), without adding parameters. This is the recorded stage-specific protocol; this release does not establish a 4-versus-8 accuracy or stability advantage.
+The 17M and 90M names describe activated scale. Total storage includes every expert and is larger; `model.parameter_ledger()` reports both definitions.

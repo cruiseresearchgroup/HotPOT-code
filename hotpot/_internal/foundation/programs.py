@@ -55,7 +55,7 @@ class FNOProgram(_FNOProgram):
 
 
 class FNOSourceAlignedSubstep4Program(FNOProgram):
-    """Source-aligned instantaneous transport executed by four substeps."""
+    """Source-aligned instantaneous transport with numerical integration."""
 
     action_abi = "instantaneous_transport_rate_v1"
     interface_revision = "fno_source_aligned_substep4_v3"

@@ -28,7 +28,7 @@ class HotPOT(Base6SemanticFieldFoundationS90M):
 
 
 def build_model(scale=17, variant='full', *, workspace=None, config=None, target=False):
-    """Build a fresh model. ``target=True`` uses eight NS target substeps.
+    """Build a fresh model. ``target=True`` selects target-stage execution settings.
 
     ``scale`` is the paper's activated-parameter scale, not total storage.
     Explicit ``config`` is useful for CPU smoke tests.

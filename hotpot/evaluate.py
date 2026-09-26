@@ -18,7 +18,7 @@ def main():
     p.add_argument('--variant', choices=VARIANTS, default='full')
     p.add_argument('--task', choices=[s.key for s in EVALUATION], required=True)
     p.add_argument('--cfdb-test-sidecar', type=Path)
-    p.add_argument('--target', action='store_true', help='Use the target NS execution (8 substeps)')
+    p.add_argument('--target', action='store_true', help='Use the execution settings for target-adapted checkpoints')
     p.add_argument('--device', default='cuda')
     p.add_argument('--batch-size', type=int, default=4)
     p.add_argument('--num-workers', type=int, default=0)
