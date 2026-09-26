@@ -42,6 +42,8 @@ python finetune.py \
 
 Use `cns_m1_eta1e-2` for CNS. NS/CNS shot counts are 16, 64, and 256. Training runs for 500 epochs with batch size `min(20, shots)` and 20% OneCycle warm-up. NS maximum learning rates are 1e-4, 1e-4, and 1e-5 at these budgets; CNS uses 1e-4. Replicate 0 uses RNG seed 20260831 and the bundled deterministic subset sampler. The final 256 trajectories of the target training source are reserved for validation. Every 10 epochs, validation rolls forward from their first 10 frames over 20 NS steps or 11 CNS steps. It averages per-trajectory, per-channel whole-horizon relative L2 norms, accumulated in FP64 with FP32 model execution. Nonfinite validation candidates are ineligible; they do not stop coefficient training or replace an earlier finite checkpoint. The minimum validation error selects a **full state, including buffers**. Test with the corresponding `fewshot-test` mode and `--target-checkpoint`; the saved validation error is reconstructed before test evaluation. Set `--arm scratch` to train the same target architecture without loading pretrained weights.
 
+The test receipt records checkpoint selection separately from historical test access: the existing coefficient benchmarks have `historically_blind: false`. Validation-based checkpoint selection in the released run does not establish that these benchmark test trajectories were never accessed during earlier development.
+
 ## New-family Wave transfer
 
 ```bash
@@ -53,7 +55,7 @@ python finetune.py \
   --output ./workspace/runs/wave_gauss_32shot
 ```
 
-Wave shot counts are 16, 32, 64, and 128; its maximum learning rate is 1e-4. Only the pretrained history encoder is copied. The Wave-private modules are freshly initialized, and all target parameters can train. Use `Wave-Layer` for the other Wave dataset and `--arm scratch` for the matched randomly initialized control. Train/test use the bundled split and file-identity checks. Evaluate with `wave-test` and the saved `--target-checkpoint`, using the same source checkpoint, task, shot count, and selection setting.
+Wave shot counts are 16, 32, 64, and 128; its maximum learning rate is 1e-4. Only the pretrained history encoder is copied. The Wave-private modules are freshly initialized, and all target parameters can train. Use `Wave-Layer` for the other Wave dataset and `--arm scratch` for the matched randomly initialized control. Scratch and encoder transfer use the same target architecture and initial predictor weights, differing in encoder initialization. Train/test use the bundled split and file-identity checks. Evaluate with `wave-test` and the saved `--target-checkpoint`, using the same source checkpoint, task, shot count, and selection setting.
 
 Wave validation/test metrics average relative L2 error across trajectories **and forecast steps**. Wave uses an observation-space residual predictor because the required physical coefficients and boundary metadata are not supplied. Array padding is not a claim about the physical boundary condition.
 
@@ -64,5 +66,7 @@ Wave validation/test metrics average relative L2 error across trajectories **and
 ## Baseline and compute
 
 Use the [official MoE-POT implementation](https://github.com/haiyangxin/MoEPOT) for the baseline. Match dataset rows, checkpoint-selection rules, activated-parameter scale, and evaluation masks; comparing total stored HotPOT parameters to active MoE-POT parameters would use different definitions. The repository includes the HotPOT execution paths, not baseline training logs or pretrained weights.
+
+The paper's Wave comparison uses full MoE-POT fine-tuning, including its feature extractor and routing parameters. Both methods use the same trajectory splits, training budgets, and full-rollout validation for checkpoint selection.
 
 The source release was smoke-tested on CPU. Full pre-training, transfer, and the paper's reported values require the datasets, the stated GPU training budgets, and their resulting checkpoints. No new full training experiment was run as part of packaging this release.

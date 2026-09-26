@@ -31,7 +31,7 @@ load_checkpoint(model, "workspace/runs/full17/checkpoint_e1000.pt")
 model = model.cuda().eval()
 ```
 
-See [model structure and tensor interfaces](docs/MODEL.md) for the architecture figure and a complete inference example.
+See [model structure and tensor interfaces](docs/MODEL.md) for the architecture figure, inference example, physical-condition inputs, stage readouts, and numerical updates.
 
 ### Dataset protocol
 
