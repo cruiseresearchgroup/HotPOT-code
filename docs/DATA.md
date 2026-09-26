@@ -19,7 +19,7 @@ Replace `train` with `test` for the six evaluation paths. The dataset reader res
 
 ## CFDBench metadata
 
-Run `python -m hotpot.prepare --workspace ./workspace` before training. It installs:
+Run `python prepare_data.py --workspace ./workspace` before training. It installs:
 
 - `metadata/cfdb_train.json`: the 9,000 training rows (581 cavity, 8,231 cylinder, 188 tube).
 - `metadata/cfdb_test.json`: the separate 1,000 test rows.
@@ -37,7 +37,7 @@ The bundled Wave split fixes disjoint trajectory rows, 100 validation trajectori
 ## Check availability
 
 ```bash
-python -m hotpot.prepare --workspace ./workspace --check
+python prepare_data.py --workspace ./workspace --check
 ```
 
 This checks metadata and representative array shapes, and reports missing paths. It does not download large arrays or reconstruct trained weights.

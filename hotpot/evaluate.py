@@ -1,5 +1,5 @@
 """Autoregressive evaluation using the released grid/channel mask."""
-import argparse
+from .config import ConfigArgumentParser
 import json
 from pathlib import Path
 import torch
@@ -11,7 +11,7 @@ from ._internal.data_protocol.objective import simple_relative_lp
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = ConfigArgumentParser(description=__doc__)
     p.add_argument('--workspace', type=Path, required=True)
     p.add_argument('--checkpoint', type=Path, required=True)
     p.add_argument('--scale', type=int, choices=(17,90), default=17)

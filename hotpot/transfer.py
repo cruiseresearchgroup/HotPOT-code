@@ -1,5 +1,5 @@
 """Fine-tuning, coefficient generalization, and new-family transfer."""
-import argparse
+from .config import ConfigArgumentParser
 import json
 import os
 from pathlib import Path
@@ -62,7 +62,7 @@ def load_target(a, prepared):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__)
+    p=ConfigArgumentParser(description=__doc__)
     p.add_argument('--workspace',type=Path,required=True)
     p.add_argument('--paths',type=Path,required=True,help='JSON mapping of data dependencies to workspace-relative paths')
     p.add_argument('--checkpoint',type=Path,required=True,help='Full source model checkpoint')

@@ -51,8 +51,7 @@ TASK_ORDER = (
 )
 
 
-def arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
+def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--cfdb-sidecar", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -63,7 +62,11 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--noise-scale", type=float, default=5.0e-4)
     parser.add_argument("--smoke-updates", type=int, default=0)
     parser.add_argument("--resume", type=Path)
-    return parser.parse_args()
+    return parser
+
+
+def arguments() -> argparse.Namespace:
+    return add_arguments(argparse.ArgumentParser()).parse_args()
 
 
 def _inside(path: Path, workspace: Path, label: str) -> Path:
@@ -159,8 +162,8 @@ def semantic_field_training_augmentation(
     return torch.where(cfdb, history, augmented)
 
 
-def main() -> None:
-    args = arguments()
+def main(args=None) -> None:
+    args = arguments() if args is None else args
     if args.epochs < 1 or args.local_batch_size < 1 or args.smoke_updates < 0:
         raise ValueError("epochs/batch must be positive")
     if args.smoke_updates == 0 and (

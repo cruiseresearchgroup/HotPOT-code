@@ -2,7 +2,7 @@
 
 ## Pre-training
 
-Use the README's `torchrun` command. The fixed recipe is two ranks, 20 samples per rank, 545 optimizer updates per epoch, and 1,000 epochs. The six storage entries use the same sample counts and unit weights as the matched MoE-POT protocol. Each sample contains 10 history frames and a one-frame target. The phase-aware sampler chooses history windows; training is not a multi-step rollout loss.
+Use `torchrun --standalone --nproc_per_node=2 train.py --config configs/pretrain_17m.yaml` (or `pretrain_90m.yaml`). The fixed recipe is two ranks, 20 samples per rank, 545 optimizer updates per epoch, and 1,000 epochs. The six storage entries use the same sample counts and unit weights as the matched MoE-POT protocol. Each sample contains 10 history frames and a one-frame target. The phase-aware sampler chooses history windows; training is not a multi-step rollout loss.
 
 Adam uses a maximum learning rate of 1e-3, betas (0.9, 0.9), and weight decay 1e-6. OneCycle uses a 20% warm-up and initial/final division factors of 1e4. Noise amplitude is 5e-4 outside CFDBench; CFDBench inputs remain clean. The source seed is 20260815. `configs/pretrain.json` records the recipe. Use `--smoke-updates 2` to test the distributed training path without a full run; this is not a trained checkpoint.
 
@@ -10,18 +10,18 @@ Use `--resume workspace/runs/full17/checkpoint_eNNNN.pt` with the original run's
 
 ## Evaluation
 
-Use the fixed E1000 source checkpoint. `hotpot.evaluate` reports a mean and all trajectory scores at the requested setting's horizons. It rolls forward using the model's own predictions. The scored horizons are 10 for NS 1e-5 and CFDBench, 20 for NS 1e-3, 11 for CNS, and 91 for SWE/DR. The evaluation computes relative error over the horizon using the released grid/channel mask; this differs from averaging independent per-step errors.
+Use the fixed E1000 source checkpoint. `evaluate.py` reports a mean and all trajectory scores at the requested setting's horizons. It rolls forward using the model's own predictions. The scored horizons are 10 for NS 1e-5 and CFDBench, 20 for NS 1e-3, 11 for CNS, and 91 for SWE/DR. The evaluation computes relative error over the horizon using the released grid/channel mask; this differs from averaging independent per-step errors.
 
 For CFDBench, add `--cfdb-test-sidecar workspace/metadata/cfdb_test.json`. Use `--target` when evaluating target-adapted full model states: source NS execution uses four substeps, while the target protocol uses eight.
 
 ## Known-task fine-tuning
 
-Use `hotpot.transfer --mode known-train` as in the README. The protocol uses 200 epochs, a fixed final checkpoint, target seed 0, learning rate 1e-4, global batch 40, and microbatch 20. It trains the shared encoder and the target's private branch. One invocation uses one GPU with gradient accumulation. Other branches remain frozen.
+Use `finetune.py --mode known-train` as in the README. The protocol uses 200 epochs, a fixed final checkpoint, target seed 0, learning rate 1e-4, global batch 40, and microbatch 20. It trains the shared encoder and the target's private branch. One invocation uses one GPU with gradient accumulation. Other branches remain frozen.
 
 Evaluate in a separate process:
 
 ```bash
-python -m hotpot.transfer \
+python finetune.py \
   --workspace ./workspace --paths configs/data_paths.json \
   --checkpoint ./workspace/runs/full17/checkpoint_e1000.pt --scale 17 \
   --target-checkpoint ./workspace/runs/ns_finetuned/target_full_state.pt \
@@ -32,7 +32,7 @@ python -m hotpot.transfer \
 ## Few-shot coefficient adaptation
 
 ```bash
-python -m hotpot.transfer \
+python finetune.py \
   --workspace ./workspace --paths configs/data_paths.json \
   --checkpoint ./workspace/runs/full17/checkpoint_e1000.pt --scale 17 \
   --mode fewshot-train --task fno_1e-4 --shots 32 \
@@ -45,7 +45,7 @@ Use `cns_m1_eta1e-2` for CNS. Shot counts are 16, 32, 64, and 128. Training runs
 ## New-family Wave transfer
 
 ```bash
-python -m hotpot.transfer \
+python finetune.py \
   --workspace ./workspace --paths configs/data_paths.json \
   --checkpoint ./workspace/runs/full17/checkpoint_e1000.pt --scale 17 \
   --mode wave-train --task Wave-Gauss --shots 32 \
