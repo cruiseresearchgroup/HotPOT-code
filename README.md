@@ -1,6 +1,6 @@
 # HotPOT: Heterogeneous Physics Experts for PDE Pre-training
 
-Code for the anonymous HotPOT submission. HotPOT combines a shared history encoder with PDE-specific neural–numerical experts for pre-training across heterogeneous PDE datasets and adaptation to downstream problems.
+Official code for HotPOT: Operator Transformer with Heterogeneous Physics Experts for Large-Scale PDE Pre-training. HotPOT combines a shared history encoder with PDE-specific neural–numerical experts for pre-training across heterogeneous PDE datasets and adaptation to downstream problems.
 
 ![HotPOT overview and Navier–Stokes comparison](assets/overview.png)
 
