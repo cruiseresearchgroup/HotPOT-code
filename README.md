@@ -134,3 +134,10 @@ python -m pytest -q
 ## Acknowledgements
 
 This implementation builds on the architecture and data conventions of [MoE-POT](https://github.com/haiyangxin/MoEPOT) and [DPOT](https://github.com/thu-ml/DPOT). Third-party attribution is retained in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+The original HotPOT source code is released under the [MIT license](LICENSE).
+Third-party code and datasets retain their respective licenses and terms; see
+[third-party notices](THIRD_PARTY_NOTICES.md). The MIT license does not grant
+additional rights to third-party materials or datasets.

@@ -7,3 +7,9 @@
 MoE-POT credits DPOT for its architecture. The data conventions and baseline evaluation protocol also build on MoE-POT. This release does not claim authorship of the AFNO component or grant additional rights to third-party code or datasets. Please consult the upstream projects and dataset providers for their applicable terms.
 
 PyTorch, NumPy, h5py, einops, and PyYAML are installed as dependencies and retain their respective licenses. Paper figures and the original HotPOT implementation are provided as research artifacts; this package does not add a new blanket license to third-party material.
+
+## Original HotPOT code
+
+The original HotPOT source code is licensed under the repository-level MIT
+license. This grant does not override the licenses or terms of the attributed
+third-party code, datasets, or other third-party materials described above.
